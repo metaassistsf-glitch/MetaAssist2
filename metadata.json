@@ -1,0 +1,5 @@
+{
+  "name": "Metaassist 4.0",
+  "description": "An AI-powered Salesforce metadata assistant. Dynamically explore, audit, and analyze your Org\u0027s architecture on-demand.",
+  "requestFramePermissions": []
+}

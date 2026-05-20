@@ -1,0 +1,214 @@
+{
+  "entities": {
+    "Org": {
+      "title": "Salesforce Organization",
+      "description": "Represents a Salesforce organization and its metadata.",
+      "type": "object",
+      "properties": {
+        "orgId": { "type": "string" },
+        "name": { "type": "string" },
+        "instanceUrl": { "type": "string" },
+        "lastSyncAt": { "type": "string", "format": "date-time" },
+        "ownerUid": { "type": "string" }
+      },
+      "required": ["orgId", "ownerUid"]
+    },
+    "MetadataItem": {
+      "title": "Metadata Item",
+      "description": "A generic container for any Salesforce metadata item (Class, Trigger, Flow, etc.).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "label": { "type": "string" },
+        "category": { "type": "string" },
+        "content": { "type": "string" },
+        "explanation": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "isSplit": { "type": "boolean" },
+        "chunkCount": { "type": "integer" },
+        "ownerUid": { "type": "string" }
+      },
+      "required": ["id", "name", "category", "ownerUid"]
+    },
+    "MetadataChunk": {
+      "title": "Metadata Chunk",
+      "description": "A chunk of a large metadata item's content.",
+      "type": "object",
+      "properties": {
+        "content": { "type": "string" },
+        "index": { "type": "integer" }
+      },
+      "required": ["content", "index"]
+    },
+    "User": {
+      "title": "User Profile",
+      "description": "Represents a user of the application.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "user"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "targetCredentials": { "type": "array", "items": { "$ref": "TargetOrgCredentials" } }
+      },
+      "required": ["uid", "email"]
+    },
+    "SalesforceCredentials": {
+      "title": "Salesforce Credentials",
+      "description": "Securely stores Salesforce OAuth credentials.",
+      "type": "object",
+      "properties": {
+        "clientId": { "type": "string" },
+        "clientSecret": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["clientId", "clientSecret"]
+    },
+    "TargetOrgCredentials": {
+      "title": "Target Org Credentials",
+      "description": "Stores credentials for target Salesforce organizations for data transfer.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "instanceUrl": { "type": "string" },
+        "clientId": { "type": "string" },
+        "clientSecret": { "type": "string" },
+        "username": { "type": "string" },
+        "password": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "ownerUid": { "type": "string" }
+      },
+      "required": ["id", "name", "instanceUrl", "clientId", "clientSecret", "ownerUid"]
+    },
+    "SalesforceSession": {
+      "title": "Salesforce Session",
+      "description": "Stores active Salesforce OAuth sessions including refresh tokens.",
+      "type": "object",
+      "properties": {
+        "orgId": { "type": "string" },
+        "userId": { "type": "string" },
+        "instanceUrl": { "type": "string" },
+        "accessToken": { "type": "string" },
+        "refreshToken": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "ownerUid": { "type": "string" }
+      },
+      "required": ["orgId", "userId", "instanceUrl", "accessToken", "refreshToken", "ownerUid"]
+    },
+    "SecurityAnalysisTile": {
+      "title": "Security Analysis Tile",
+      "description": "Stores the results of a specific security analysis tile for a Salesforce organization.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "orgId": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "data": { "type": "object" },
+        "summary": { "type": "object" },
+        "ownerUid": { "type": "string" }
+      },
+      "required": ["id", "orgId", "timestamp", "data", "ownerUid"]
+    },
+    "SCARule": {
+      "title": "SCA Rule",
+      "description": "Represents a Static Code Analysis rule with its severity and reference URL.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "severity": { "type": "string", "enum": ["Critical", "High", "Medium", "Low"] },
+        "url": { "type": "string" },
+        "description": { "type": "string" }
+      },
+      "required": ["name", "severity", "url"]
+    },
+    "JiraAnalysis": {
+      "title": "Jira Analysis",
+      "description": "Stores generated design plans and notes for Jira stories.",
+      "type": "object",
+      "properties": {
+        "issueKey": { "type": "string" },
+        "designPlan": { "type": "string" },
+        "designNotes": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "ownerUid": { "type": "string" }
+      },
+      "required": ["issueKey", "designPlan", "designNotes", "ownerUid"]
+    },
+    "Skill": {
+      "title": "Salesforce Agent Skill",
+      "description": "Represents an agent skill or instruction set for Salesforce metadata analysis.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "content": { "type": "string" },
+        "version": { "type": "string" },
+        "category": { "type": "string" },
+        "source": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "content"]
+    }
+  },
+  "firestore": {
+    "/skills/{skillId}": {
+      "schema": "Skill",
+      "description": "Curated collection of Salesforce agent skills and instructions."
+    },
+    "/sca_config/{configId}": {
+      "schema": "object",
+      "description": "Configuration for Static Code Analysis, including rule definitions."
+    },
+    "/sessions/{sessionId}": {
+      "schema": "SalesforceSession",
+      "description": "Active Salesforce OAuth sessions."
+    },
+    "/sf_creds/{username}": {
+      "schema": "SalesforceCredentials",
+      "description": "Salesforce credentials for a specific username."
+    },
+    "/target_org_creds/{targetOrgId}": {
+      "schema": "TargetOrgCredentials",
+      "description": "Target Salesforce organization credentials."
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile data."
+    },
+    "/orgs/{orgId}": {
+      "schema": "Org",
+      "description": "Salesforce organization root document."
+    },
+    "/orgs/{orgId}/security_analysis/{tileId}": {
+      "schema": "SecurityAnalysisTile",
+      "description": "Security analysis results for a specific tile in an organization."
+    },
+    "/orgs/{orgId}/metadata/{category}/items/{itemId}": {
+      "schema": "MetadataItem",
+      "description": "A specific metadata item."
+    },
+    "/orgs/{orgId}/metadata/{category}/items/{itemId}/chunks/{chunkId}": {
+      "schema": "MetadataChunk",
+      "description": "Chunks for large metadata items."
+    },
+    "/orgs/{orgId}/metadata/objects/items/{objectName}/assignments/{assignmentType}": {
+      "schema": "object",
+      "description": "Assignments for objects (layouts, flexiPages)."
+    },
+    "/orgs/{orgId}/metadata/objects/items/{objectName}/{subCollection}/{docId}": {
+      "schema": "object",
+      "description": "Sub-items for objects (fields, validationRules, etc.)."
+    },
+    "/orgs/{orgId}/jira_analyses/{issueKey}": {
+      "schema": "JiraAnalysis",
+      "description": "Jira analysis results for a specific issue."
+    },
+    "/releasenotes/{noteId}": {
+      "schema": "object",
+      "description": "Release notes for the application."
+    }
+  }
+}

@@ -1,0 +1,231 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ===============================================================
+    // GLOBAL HELPERS
+    // ===============================================================
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && (request.auth.token.email_verified == true || request.auth.token.email == 'anonymous');
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == "vidhyaprakashvp7@gmail.com" || 
+        request.auth.token.email == "olympiadsalesforce@gmail.com"
+      ) && request.auth.token.email_verified == true;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // ===============================================================
+    // ENTITY VALIDATION BLUEPRINTS
+    // ===============================================================
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email']) &&
+             data.keys().size() >= 2 && data.keys().size() <= 10 &&
+             data.uid == request.auth.uid &&
+             data.email is string && data.email.size() <= 256 &&
+             (!('role' in data) || (data.role is string && data.role.size() <= 20)) &&
+             (!('createdAt' in data) || data.createdAt is timestamp);
+    }
+
+    function isValidOrg(data) {
+      return data.keys().hasAll(['orgId', 'ownerUid']) &&
+             data.keys().size() >= 2 && data.keys().size() <= 15 &&
+             data.orgId is string && data.orgId.size() <= 128 &&
+             data.ownerUid == request.auth.uid &&
+             (!('name' in data) || (data.name is string && data.name.size() <= 256)) &&
+             (!('instanceUrl' in data) || (data.instanceUrl is string && data.instanceUrl.size() <= 512)) &&
+             (!('lastSyncAt' in data) || data.lastSyncAt is timestamp);
+    }
+
+    function isValidMetadataItem(data) {
+      return data.keys().hasAll(['id', 'name', 'category', 'ownerUid']) &&
+             data.keys().size() >= 4 && data.keys().size() <= 20 &&
+             data.id is string && data.id.size() <= 128 &&
+             data.name is string && data.name.size() <= 512 &&
+             data.category is string && data.category.size() <= 64 &&
+             data.ownerUid == request.auth.uid &&
+             (!('content' in data) || (data.content is string && data.content.size() <= 1048576)) &&
+             (!('explanation' in data) || (data.explanation is string && data.explanation.size() <= 1048576)) &&
+             (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
+    function isValidSession(data) {
+      return data.keys().hasAll(['orgId', 'userId', 'instanceUrl', 'accessToken', 'refreshToken', 'ownerUid']) &&
+             data.keys().size() >= 6 && data.keys().size() <= 15 &&
+             data.ownerUid == request.auth.uid &&
+             data.accessToken is string && data.accessToken.size() <= 4096 &&
+             data.refreshToken is string && data.refreshToken.size() <= 4096;
+    }
+
+    function isValidTargetCred(data) {
+      return data.keys().hasAll(['id', 'name', 'instanceUrl', 'clientId', 'clientSecret', 'ownerUid']) &&
+             data.keys().size() >= 6 && data.keys().size() <= 20 &&
+             data.ownerUid == request.auth.uid &&
+             data.clientId is string && data.clientId.size() <= 512 &&
+             data.clientSecret is string && data.clientSecret.size() <= 512;
+    }
+
+    function isValidSecurityAnalysis(data) {
+      return data.keys().hasAll(['id', 'orgId', 'timestamp', 'data', 'ownerUid']) &&
+             data.keys().size() >= 5 && data.keys().size() <= 15 &&
+             data.id is string && data.orgId is string &&
+             data.ownerUid == request.auth.uid &&
+             data.timestamp is timestamp;
+    }
+
+    function isValidJiraAnalysis(data) {
+      return data.keys().hasAll(['issueKey', 'designPlan', 'designNotes', 'ownerUid']) &&
+             data.keys().size() >= 4 && data.keys().size() <= 6 &&
+             data.issueKey is string &&
+             data.designPlan is string &&
+             data.designNotes is string &&
+             data.ownerUid == request.auth.uid;
+    }
+
+    function isValidSkill(data) {
+      return data.keys().hasAll(['id', 'name', 'content']) &&
+             data.keys().size() >= 3 && data.keys().size() <= 10 &&
+             data.id is string && data.id.size() <= 128 &&
+             data.name is string && data.name.size() <= 256 &&
+             data.content is string && data.content.size() <= 1048576 &&
+             (!('description' in data) || (data.description is string && data.description.size() <= 1024)) &&
+             (!('category' in data) || (data.category is string && data.category.size() <= 128)) &&
+             (!('source' in data) || (data.source is string && data.source.size() <= 256)) &&
+             (!('updatedAt' in data) || data.updatedAt is timestamp);
+    }
+
+    // ===============================================================
+    // COLLECTION RULES
+    // ===============================================================
+
+    // [Pillar 1: Master Gate] Skills collection
+    match /skills/{skillId} {
+      allow read: if isEmailVerified();
+      allow write: if isAdmin() && isValidSkill(incoming());
+    }
+
+    // [Pillar 6: PII Isolation] Users collection
+    match /users/{userId} {
+      allow get: if isEmailVerified() && request.auth.uid == userId;
+      allow list: if isAdmin();
+      allow create: if isEmailVerified() && request.auth.uid == userId && isValidUser(incoming()) && (!('role' in incoming()) || incoming().role == 'user');
+      allow update: if isEmailVerified() && request.auth.uid == userId && isValidUser(incoming()) && 
+                    incoming().role == existing().role &&
+                    incoming().uid == existing().uid &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['email', 'createdAt', 'targetCredentials', 'role']);
+    }
+
+    // [Pillar 1: Master Gate] Orgs collection
+    match /orgs/{orgId} {
+      allow get: if isEmailVerified() && (existing().ownerUid == request.auth.uid || isAdmin()) && isValidId(orgId);
+      allow list: if isEmailVerified() && resource.data.ownerUid == request.auth.uid;
+      allow create: if isEmailVerified() && isValidOrg(incoming());
+      allow update: if isEmailVerified() && existing().ownerUid == request.auth.uid && isValidOrg(incoming()) &&
+                    incoming().ownerUid == existing().ownerUid &&
+                    incoming().orgId == existing().orgId &&
+                    (
+                      // Action: Sync Update
+                      incoming().diff(existing()).affectedKeys().hasOnly(['lastSyncAt', 'name', 'instanceUrl'])
+                    );
+      allow delete: if isEmailVerified() && (existing().ownerUid == request.auth.uid || isAdmin());
+
+      // Metadata Items
+      match /metadata/{category}/items/{itemId} {
+        allow get: if isEmailVerified() && (get(/databases/$(database)/documents/orgs/$(orgId)).data.ownerUid == request.auth.uid || isAdmin()) && isValidId(itemId);
+        allow list: if isEmailVerified() && (resource.data.ownerUid == request.auth.uid || isAdmin());
+        allow create: if isEmailVerified() && get(/databases/$(database)/documents/orgs/$(orgId)).data.ownerUid == request.auth.uid && isValidMetadataItem(incoming());
+        allow update: if isEmailVerified() && get(/databases/$(database)/documents/orgs/$(orgId)).data.ownerUid == request.auth.uid && isValidMetadataItem(incoming()) &&
+                      incoming().id == existing().id &&
+                      incoming().category == existing().category &&
+                      incoming().ownerUid == existing().ownerUid;
+        
+        match /chunks/{chunkId} {
+          allow get: if isEmailVerified() && (get(/databases/$(database)/documents/orgs/$(orgId)).data.ownerUid == request.auth.uid || isAdmin());
+          allow list: if isEmailVerified() && (get(/databases/$(database)/documents/orgs/$(orgId)).data.ownerUid == request.auth.uid || isAdmin());
+          allow create, update: if isEmailVerified() && get(/databases/$(database)/documents/orgs/$(orgId)).data.ownerUid == request.auth.uid;
+        }
+      }
+
+      // Security Analysis
+      match /security_analysis/{tileId} {
+        allow get: if isEmailVerified() && (get(/databases/$(database)/documents/orgs/$(orgId)).data.ownerUid == request.auth.uid || isAdmin()) && isValidId(tileId);
+        allow list: if isEmailVerified() && (resource.data.ownerUid == request.auth.uid || isAdmin());
+        allow create: if isEmailVerified() && get(/databases/$(database)/documents/orgs/$(orgId)).data.ownerUid == request.auth.uid && isValidSecurityAnalysis(incoming());
+        allow update: if isEmailVerified() && get(/databases/$(database)/documents/orgs/$(orgId)).data.ownerUid == request.auth.uid && isValidSecurityAnalysis(incoming()) &&
+                      incoming().ownerUid == existing().ownerUid;
+      }
+
+      // Jira Analyses
+      match /jira_analyses/{issueKey} {
+        allow get: if isEmailVerified() && (get(/databases/$(database)/documents/orgs/$(orgId)).data.ownerUid == request.auth.uid || isAdmin());
+        allow list: if isEmailVerified() && (resource.data.ownerUid == request.auth.uid || isAdmin());
+        allow create: if isEmailVerified() && get(/databases/$(database)/documents/orgs/$(orgId)).data.ownerUid == request.auth.uid && isValidJiraAnalysis(incoming());
+        allow update: if isEmailVerified() && get(/databases/$(database)/documents/orgs/$(orgId)).data.ownerUid == request.auth.uid && isValidJiraAnalysis(incoming()) &&
+                      incoming().ownerUid == existing().ownerUid &&
+                      incoming().issueKey == existing().issueKey &&
+                      incoming().diff(existing()).affectedKeys().hasOnly(['designPlan', 'designNotes', 'updatedAt']);
+      }
+    }
+
+    // Sessions
+    match /sessions/{sessionId} {
+      allow get: if isEmailVerified() && (existing().ownerUid == request.auth.uid || isAdmin()) && isValidId(sessionId);
+      allow list: if isEmailVerified() && (resource.data.ownerUid == request.auth.uid || isAdmin());
+      allow create: if isEmailVerified() && isValidSession(incoming());
+      allow update: if isEmailVerified() && existing().ownerUid == request.auth.uid && isValidSession(incoming()) &&
+                    incoming().ownerUid == existing().ownerUid;
+      allow delete: if isEmailVerified() && (existing().ownerUid == request.auth.uid || isAdmin());
+    }
+
+    // Target Org Credentials
+    match /target_org_creds/{targetOrgId} {
+      allow get: if isEmailVerified() && (existing().ownerUid == request.auth.uid || isAdmin()) && isValidId(targetOrgId);
+      allow list: if isEmailVerified() && (resource.data.ownerUid == request.auth.uid || isAdmin());
+      allow create: if isEmailVerified() && isValidTargetCred(incoming());
+      allow update: if isEmailVerified() && existing().ownerUid == request.auth.uid && isValidTargetCred(incoming()) &&
+                    incoming().ownerUid == existing().ownerUid;
+      allow delete: if isEmailVerified() && (existing().ownerUid == request.auth.uid || isAdmin());
+    }
+
+    // Salesforce Credentials (sf_creds)
+    match /sf_creds/{username} {
+      allow read, write: if isAdmin();
+    }
+
+    // Release Notes
+    match /releasenotes/{noteId} {
+      allow read: if isEmailVerified();
+      allow write: if isAdmin();
+    }
+
+    // SCA Config
+    match /sca_config/{configId} {
+      allow read: if isEmailVerified();
+      allow write: if isAdmin();
+    }
+  }
+}
